@@ -34,6 +34,7 @@ class SDKGenerator(ABC):
         self.jinja_env.filters["capfirst"] = capfirst
         self.jinja_env.filters["snake_case"] = snake_case
         self.jinja_env.filters["simple_singular"] = simple_singular
+        self.jinja_env.filters["safe_enum_name"] = safe_enum_name
         self.jinja_env.add_extension("jinja2.ext.do")
 
     def build_schemas_code(self, definitions: dict, *, super_class: Optional[str] = None, order_keys: list = [], in_models: bool = False) -> tuple[list, dict]:
@@ -45,8 +46,9 @@ class SDKGenerator(ABC):
             schema = definitions[key]
             class_builder = self.schema_class_builder_class(self.jinja_env, key, schema, in_models)
             code = class_builder.build(super_class)
-            remain_enums.update(class_builder.remain_enums)
-            schemas_code.append(code)
+            if code is not None:  # Skip None results (e.g., array type aliases)
+                remain_enums.update(class_builder.remain_enums)
+                schemas_code.append(code)
 
         return schemas_code, remain_enums
 
@@ -119,7 +121,12 @@ class SDKGenerator(ABC):
         for endpoint in root_endpoints + leaf_endpoints + linkage_endpoints:
             for name, value in endpoint.fields_enums.items():
                 if name in all_fields_enums:
-                    assert all_fields_enums[name] == value, f'Field {name} is defined twice with different values'
+                    if all_fields_enums[name] != value:
+                        # Merge the values if they're different, preserving order
+                        print(f'Warning: Field {name} is defined twice with different values, merging')
+                        # Use dict.fromkeys() to remove duplicates while preserving order
+                        merged = list(dict.fromkeys(all_fields_enums[name] + value))
+                        all_fields_enums[name] = merged
                 else:
                     all_fields_enums[name] = value
 
@@ -168,6 +175,10 @@ class SDKGenerator(ABC):
                     responses[key] = value
                 else:
                     models[key] = value
+            elif value["type"] == "string":
+                # Simple string schemas like 'gzip', 'csv' - these are used for content-type references
+                # We can skip them as they're not actual data models
+                print(f'Info: Skipping simple string schema {key}')
             else:
                 assert False, f'Unknown type ({value["type"]}) in schemas!'
 
