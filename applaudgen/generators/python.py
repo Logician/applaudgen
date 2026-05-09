@@ -55,7 +55,7 @@ class PythonSchemaClassBuilder(SchemaClassBuilder):
         name = snake_case(name)
 
         if default_value is None:
-            deprecated_suffix = ' = Field(None, deprecated=True)' if is_deprecated else ''
+            deprecated_suffix = ' = Field(None, deprecated=True)' if is_deprecated else ' = None'
             return f'{name}: {type}' if is_required else f'{name}: Optional[{type}]' + deprecated_suffix
 
         return f'{name}: Literal[{default_value}] = {default_value}'
