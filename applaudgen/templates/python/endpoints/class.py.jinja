@@ -98,6 +98,32 @@ class {{endpoint.class_name}}({% if endpoint.has_id_param %}IDEndpoint{% else %}
         return {{op.response_type}}.parse_obj(json)
         {% endif %}
 
+
+    {%- if endpoint.limit_function_code %}
+
+        {% if op.deprecated %}
+    @deprecated
+        {% endif %}
+    def get_all(self) -> {{ op.response_type }}:
+        '''
+        Get all resources.
+
+        :returns: {{ op.response_comment }}
+        :rtype: {{ op.response_type }}
+        :raises: :py:class:`applaud.schemas.responses.ErrorResponse`: if a error reponse returned.
+                 :py:class:`requests.RequestException`: if a connection or a HTTP error occurred.
+        '''
+        json = super()._perform_get()
+        response = {{op.response_type}}.parse_obj(json)
+        while response.links.next != None:
+            json = super()._perform_get_next(next = response.links.next)
+            response2 = {{op.response_type}}.parse_obj(json)
+            response.data.extend(response2.data)
+            response.links = response2.links
+        return response
+
+    {% endif -%}
+
     {% endif -%}
 
     {%- if endpoint.operation_post %}
