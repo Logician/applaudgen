@@ -99,7 +99,11 @@ class SchemaClassBuilder(ABC):
         deprecated = property_dict.get('deprecated', False)
 
         if '$ref' in property_dict:
-            return (property_dict['$ref'].split('/')[-1], None, deprecated)
+            property_type = property_dict['$ref'].split('/')[-1]
+            if property_type == 'StringToStringMap':
+                property_type = 'dict[str,str]'
+            return (property_type, None, deprecated)
+        
         else:
             default_value = None
             property_type = property_dict.get('type', None)
